@@ -41,10 +41,7 @@ impl<I: Iterator<Item = char>> Iterator for StreamSafe<I> {
 
     #[inline]
     fn next(&mut self) -> Option<char> {
-        let next_ch = match self.buffer.take().or_else(|| self.iter.next()) {
-            None => return None,
-            Some(c) => c,
-        };
+        let next_ch = self.buffer.take().or_else(|| self.iter.next())?;
         let d = classify_nonstarters(next_ch);
         if self.nonstarter_count + d.leading_nonstarters > MAX_NONSTARTERS {
             // Since we're emitting a CGJ, the suffix of the emitted string in NFKD has no trailing
