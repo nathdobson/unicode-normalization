@@ -13,8 +13,7 @@ use core::{
     fmt::{self, Write},
     iter::FusedIterator,
 };
-use tinyvec::TinyVec;
-
+use tinyvec::ArrayVec;
 #[derive(Clone)]
 enum RecompositionState {
     Composing,
@@ -27,7 +26,7 @@ enum RecompositionState {
 pub struct Recompositions<I> {
     iter: Decompositions<I>,
     state: RecompositionState,
-    buffer: TinyVec<[char; 4]>,
+    buffer: ArrayVec<[char; 4]>,
     composee: Option<char>,
     last_ccc: Option<u8>,
 }
@@ -42,7 +41,7 @@ impl<I: Iterator<Item = char>> Recompositions<I> {
         Recompositions {
             iter: Decompositions::new_canonical(iter),
             state: self::RecompositionState::Composing,
-            buffer: TinyVec::new(),
+            buffer: ArrayVec::new(),
             composee: None,
             last_ccc: None,
         }
@@ -57,7 +56,7 @@ impl<I: Iterator<Item = char>> Recompositions<I> {
         Recompositions {
             iter: Decompositions::new_compatible(iter),
             state: self::RecompositionState::Composing,
-            buffer: TinyVec::new(),
+            buffer: ArrayVec::new(),
             composee: None,
             last_ccc: None,
         }

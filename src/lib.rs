@@ -44,7 +44,8 @@
 )]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-#[cfg(not(feature = "std"))]
+
+#[cfg(all(feature = "alloc", not(feature = "std")))]
 extern crate alloc;
 
 #[cfg(feature = "std")]
@@ -75,6 +76,7 @@ mod stream_safe;
 mod tables;
 
 #[doc(hidden)]
+#[cfg(feature = "alloc")]
 pub mod __test_api;
 #[cfg(test)]
 mod test;
