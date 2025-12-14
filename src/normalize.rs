@@ -20,9 +20,9 @@ use core::char;
 /// See [Unicode Standard Annex #15](http://www.unicode.org/reports/tr15/)
 /// for more information.
 #[inline]
-pub fn decompose_canonical<F>(c: char, emit_char: F)
+pub fn decompose_canonical<F, E>(c: char, emit_char: F) -> Result<(), E>
 where
-    F: FnMut(char),
+    F: FnMut(char) -> Result<(), E>,
 {
     decompose(c, canonical_fully_decomposed, emit_char)
 }
@@ -31,7 +31,10 @@ where
 /// See [Unicode Standard Annex #15](http://www.unicode.org/reports/tr15/)
 /// for more information.
 #[inline]
-pub fn decompose_compatible<F: FnMut(char)>(c: char, emit_char: F) {
+pub fn decompose_compatible<F: FnMut(char) -> Result<(), E>, E>(
+    c: char,
+    emit_char: F,
+) -> Result<(), E> {
     let decompose_char =
         |c| compatibility_fully_decomposed(c).or_else(|| canonical_fully_decomposed(c));
     decompose(c, decompose_char, emit_char)
@@ -48,60 +51,60 @@ pub fn decompose_compatible<F: FnMut(char)>(c: char, emit_char: F) {
 /// [Unicode Variation Sequence FAQ]: http://unicode.org/faq/vs.html
 /// [Unicode 6.3 Release Summary]: https://www.unicode.org/versions/Unicode6.3.0/#Summary
 #[inline]
-pub fn decompose_cjk_compat_variants<F>(c: char, mut emit_char: F)
+pub fn decompose_cjk_compat_variants<F, E>(c: char, mut emit_char: F) -> Result<(), E>
 where
-    F: FnMut(char),
+    F: FnMut(char) -> Result<(), E>,
 {
     // 7-bit ASCII never decomposes
     if c <= '\x7f' {
-        emit_char(c);
-        return;
+        emit_char(c)?;
+        return Ok(());
     }
 
     // Don't perform decomposition for Hangul
 
     if let Some(decomposed) = cjk_compat_variants_fully_decomposed(c) {
         for &d in decomposed {
-            emit_char(d);
+            emit_char(d)?;
         }
-        return;
+        return Ok(());
     }
 
     // Finally bottom out.
-    emit_char(c);
+    emit_char(c)
 }
 
 #[inline]
 #[allow(unsafe_code)]
-fn decompose<D, F>(c: char, decompose_char: D, mut emit_char: F)
+fn decompose<D, F, E>(c: char, decompose_char: D, mut emit_char: F) -> Result<(), E>
 where
     D: Fn(char) -> Option<&'static [char]>,
-    F: FnMut(char),
+    F: FnMut(char) -> Result<(), E>,
 {
     // 7-bit ASCII never decomposes
     if c <= '\x7f' {
-        emit_char(c);
-        return;
+        emit_char(c)?;
+        return Ok(());
     }
 
     // Perform decomposition for Hangul
     if is_hangul_syllable(c) {
         // Safety: Hangul Syllables invariant checked by is_hangul_syllable above
         unsafe {
-            decompose_hangul(c, emit_char);
+            decompose_hangul(c, emit_char)?;
         }
-        return;
+        return Ok(());
     }
 
     if let Some(decomposed) = decompose_char(c) {
         for &d in decomposed {
-            emit_char(d);
+            emit_char(d)?;
         }
-        return;
+        return Ok(());
     }
 
     // Finally bottom out.
-    emit_char(c);
+    emit_char(c)
 }
 
 /// Compose two characters into a single character, if possible.
@@ -142,9 +145,9 @@ pub(crate) fn is_hangul_syllable(c: char) -> bool {
 // Safety: `s` MUST be a valid Hangul Syllable character, between U+AC00..U+D7AF
 #[allow(unsafe_code, unused_unsafe)]
 #[inline(always)]
-unsafe fn decompose_hangul<F>(s: char, mut emit_char: F)
+unsafe fn decompose_hangul<F, E>(s: char, mut emit_char: F) -> Result<(), E>
 where
-    F: FnMut(char),
+    F: FnMut(char) -> Result<(), E>,
 {
     // This will be at most 0x2baf, the size of the Hangul Syllables block
     let s_index = s as u32 - S_BASE;
@@ -152,20 +155,21 @@ where
     let l_index = s_index / N_COUNT;
     unsafe {
         // Safety: L_BASE (0x1100) plus at most 19 is still going to be in range for a valid Unicode code point in the BMP (< 0xD800)
-        emit_char(char::from_u32_unchecked(L_BASE + l_index));
+        emit_char(char::from_u32_unchecked(L_BASE + l_index))?;
 
         // Safety: This will be at most (N_COUNT - 1) / T_COUNT = (V*T - 1) / T, which gives us an upper bound of V_COUNT = 21
         let v_index = (s_index % N_COUNT) / T_COUNT;
         // Safety: V_BASE (0x1161) plus at most 21 is still going to be in range for a valid Unicode code point in the BMP (< 0xD800)
-        emit_char(char::from_u32_unchecked(V_BASE + v_index));
+        emit_char(char::from_u32_unchecked(V_BASE + v_index))?;
 
         // Safety: This will be at most T_COUNT - 1 (27)
         let t_index = s_index % T_COUNT;
         if t_index > 0 {
             // Safety: T_BASE (0x11A7) plus at most 27 is still going to be in range for a valid Unicode code point in the BMP (< 0xD800)
-            emit_char(char::from_u32_unchecked(T_BASE + t_index));
+            emit_char(char::from_u32_unchecked(T_BASE + t_index))?;
         }
     }
+    Ok(())
 }
 
 #[inline]

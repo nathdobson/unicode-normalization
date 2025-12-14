@@ -13,7 +13,10 @@ use core::{
     fmt::{self, Write},
     iter::FusedIterator,
 };
-use tinyvec::ArrayVec;
+use heapless::CapacityError;
+
+const BUFFER_CAP: usize = 10;
+
 #[derive(Clone)]
 enum RecompositionState {
     Composing,
@@ -26,7 +29,7 @@ enum RecompositionState {
 pub struct Recompositions<I> {
     iter: Decompositions<I>,
     state: RecompositionState,
-    buffer: ArrayVec<[char; 4]>,
+    buffer: heapless::Vec<char, BUFFER_CAP>,
     composee: Option<char>,
     last_ccc: Option<u8>,
 }
@@ -41,7 +44,7 @@ impl<I: Iterator<Item = char>> Recompositions<I> {
         Recompositions {
             iter: Decompositions::new_canonical(iter),
             state: self::RecompositionState::Composing,
-            buffer: ArrayVec::new(),
+            buffer: heapless::Vec::new(),
             composee: None,
             last_ccc: None,
         }
@@ -56,7 +59,7 @@ impl<I: Iterator<Item = char>> Recompositions<I> {
         Recompositions {
             iter: Decompositions::new_compatible(iter),
             state: self::RecompositionState::Composing,
-            buffer: ArrayVec::new(),
+            buffer: heapless::Vec::new(),
             composee: None,
             last_ccc: None,
         }
@@ -64,21 +67,25 @@ impl<I: Iterator<Item = char>> Recompositions<I> {
 }
 
 impl<I: Iterator<Item = char>> Iterator for Recompositions<I> {
-    type Item = char;
+    type Item = Result<char, CapacityError>;
 
     #[inline]
-    fn next(&mut self) -> Option<char> {
+    fn next(&mut self) -> Option<Result<char, CapacityError>> {
         use self::RecompositionState::*;
 
         loop {
             match self.state {
                 Composing => {
                     for ch in self.iter.by_ref() {
+                        let ch = match ch {
+                            Err(e) => return Some(Err(e)),
+                            Ok(ch) => ch,
+                        };
                         let ch_class = super::char::canonical_combining_class(ch);
                         let k = match self.composee {
                             None => {
                                 if ch_class != 0 {
-                                    return Some(ch);
+                                    return Some(Ok(ch));
                                 }
                                 self.composee = Some(ch);
                                 continue;
@@ -94,9 +101,11 @@ impl<I: Iterator<Item = char>> Iterator for Recompositions<I> {
                                 None => {
                                     if ch_class == 0 {
                                         self.composee = Some(ch);
-                                        return Some(k);
+                                        return Some(Ok(k));
                                     }
-                                    self.buffer.push(ch);
+                                    if let Err(_) = self.buffer.push(ch) {
+                                        return Some(Err(CapacityError::default()));
+                                    }
                                     self.last_ccc = Some(ch_class);
                                 }
                             },
@@ -107,9 +116,11 @@ impl<I: Iterator<Item = char>> Iterator for Recompositions<I> {
                                         self.composee = Some(ch);
                                         self.last_ccc = None;
                                         self.state = Purging(0);
-                                        return Some(k);
+                                        return Some(Ok(k));
                                     }
-                                    self.buffer.push(ch);
+                                    if let Err(_) = self.buffer.push(ch) {
+                                        return Some(Err(CapacityError::default()));
+                                    }
                                     self.last_ccc = Some(ch_class);
                                     continue;
                                 }
@@ -119,7 +130,9 @@ impl<I: Iterator<Item = char>> Iterator for Recompositions<I> {
                                         continue;
                                     }
                                     None => {
-                                        self.buffer.push(ch);
+                                        if let Err(_) = self.buffer.push(ch) {
+                                            return Some(Err(CapacityError::default()));
+                                        }
                                         self.last_ccc = Some(ch_class);
                                     }
                                 }
@@ -128,7 +141,7 @@ impl<I: Iterator<Item = char>> Iterator for Recompositions<I> {
                     }
                     self.state = Finished(0);
                     if self.composee.is_some() {
-                        return self.composee.take();
+                        return self.composee.take().map(Ok);
                     }
                 }
                 Purging(next) => match self.buffer.get(next).cloned() {
@@ -138,17 +151,17 @@ impl<I: Iterator<Item = char>> Iterator for Recompositions<I> {
                     }
                     s => {
                         self.state = Purging(next + 1);
-                        return s;
+                        return s.map(Ok);
                     }
                 },
                 Finished(next) => match self.buffer.get(next).cloned() {
                     None => {
                         self.buffer.clear();
-                        return self.composee.take();
+                        return self.composee.take().map(Ok);
                     }
                     s => {
                         self.state = Finished(next + 1);
-                        return s;
+                        return s.map(Ok);
                     }
                 },
             }
@@ -161,7 +174,7 @@ impl<I: Iterator<Item = char> + FusedIterator> FusedIterator for Recompositions<
 impl<I: Iterator<Item = char> + Clone> fmt::Display for Recompositions<I> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for c in self.clone() {
-            f.write_char(c)?;
+            f.write_char(c.map_err(|_| fmt::Error)?)?;
         }
         Ok(())
     }

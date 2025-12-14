@@ -22,7 +22,7 @@
 //!     assert_eq!(compose('A','\u{30a}'), Some('Å'));
 //!
 //!     let s = "ÅΩ";
-//!     let c = s.nfc().collect::<String>();
+//!     let c = s.nfc().map(|x|x.unwrap()).collect::<String>();
 //!     assert_eq!(c, "ÅΩ");
 //! }
 //! ```
@@ -37,21 +37,19 @@
 //! unicode-normalization = "0.1.20"
 //! ```
 
-#![deny(missing_docs, unsafe_code)]
+#![feature(never_type)]
+#![deny(missing_docs, unsafe_code, unused_must_use)]
 #![doc(
     html_logo_url = "https://unicode-rs.github.io/unicode-rs_sm.png",
     html_favicon_url = "https://unicode-rs.github.io/unicode-rs_sm.png"
 )]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 extern crate alloc;
 
 #[cfg(feature = "std")]
 extern crate core;
-
-extern crate tinyvec;
 
 pub use crate::decompose::Decompositions;
 pub use crate::quick_check::{
@@ -230,5 +228,57 @@ impl<I: Iterator<Item = char>> UnicodeNormalization<I> for I {
     #[inline]
     fn stream_safe(self) -> StreamSafe<I> {
         StreamSafe::new(self)
+    }
+}
+
+/// Compare two iterators that might fail
+pub fn try_iter_eq<
+    A: PartialEq,
+    E,
+    I1: Iterator<Item = Result<A, E>>,
+    I2: Iterator<Item = Result<A, E>>,
+>(
+    mut i1: I1,
+    mut i2: I2,
+) -> Result<bool, E> {
+    loop {
+        let x1 = i1.next().transpose()?;
+        let x2 = i2.next().transpose()?;
+        match (x1, x2) {
+            (None, None) => return Ok(true),
+            (Some(x1), Some(x2)) => {
+                if x1 != x2 {
+                    return Ok(false);
+                }
+            }
+            _ => return Ok(false),
+        }
+    }
+}
+
+/// Compare two iterators that might fail, with a comparison that might fail
+pub fn try_iter_eq_by<
+    A,
+    E,
+    I1: Iterator<Item = Result<A, E>>,
+    I2: Iterator<Item = Result<A, E>>,
+    C: FnMut(A, A) -> Result<bool, E>,
+>(
+    mut i1: I1,
+    mut i2: I2,
+    mut cmp: C,
+) -> Result<bool, E> {
+    loop {
+        let x1 = i1.next().transpose()?;
+        let x2 = i2.next().transpose()?;
+        match (x1, x2) {
+            (None, None) => return Ok(true),
+            (Some(x1), Some(x2)) => {
+                if !cmp(x1, x2)? {
+                    return Ok(false);
+                }
+            }
+            _ => return Ok(false),
+        }
     }
 }

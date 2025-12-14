@@ -1,7 +1,8 @@
 use crate::lookups::canonical_combining_class;
-use crate::stream_safe;
 use crate::tables;
 use crate::UnicodeNormalization;
+use crate::{stream_safe, try_iter_eq};
+use heapless::CapacityError;
 
 /// QuickCheck quickly determines if a string is normalized, it can return
 /// `Maybe`
@@ -108,61 +109,61 @@ pub fn is_nfd_stream_safe_quick<I: Iterator<Item = char>>(s: I) -> IsNormalized 
 
 /// Authoritatively check if a string is in NFC.
 #[inline]
-pub fn is_nfc(s: &str) -> bool {
+pub fn is_nfc(s: &str) -> Result<bool, CapacityError> {
     match is_nfc_quick(s.chars()) {
-        IsNormalized::Yes => true,
-        IsNormalized::No => false,
-        IsNormalized::Maybe => s.chars().eq(s.chars().nfc()),
+        IsNormalized::Yes => Ok(true),
+        IsNormalized::No => Ok(false),
+        IsNormalized::Maybe => try_iter_eq(s.chars().map(Ok), s.chars().nfc()),
     }
 }
 
 /// Authoritatively check if a string is in NFKC.
 #[inline]
-pub fn is_nfkc(s: &str) -> bool {
+pub fn is_nfkc(s: &str) -> Result<bool, CapacityError> {
     match is_nfkc_quick(s.chars()) {
-        IsNormalized::Yes => true,
-        IsNormalized::No => false,
-        IsNormalized::Maybe => s.chars().eq(s.chars().nfkc()),
+        IsNormalized::Yes => Ok(true),
+        IsNormalized::No => Ok(false),
+        IsNormalized::Maybe => try_iter_eq(s.chars().map(Ok), s.chars().nfkc()),
     }
 }
 
 /// Authoritatively check if a string is in NFD.
 #[inline]
-pub fn is_nfd(s: &str) -> bool {
+pub fn is_nfd(s: &str) -> Result<bool, CapacityError> {
     match is_nfd_quick(s.chars()) {
-        IsNormalized::Yes => true,
-        IsNormalized::No => false,
-        IsNormalized::Maybe => s.chars().eq(s.chars().nfd()),
+        IsNormalized::Yes => Ok(true),
+        IsNormalized::No => Ok(false),
+        IsNormalized::Maybe => try_iter_eq(s.chars().map(Ok), s.chars().nfd()),
     }
 }
 
 /// Authoritatively check if a string is in NFKD.
 #[inline]
-pub fn is_nfkd(s: &str) -> bool {
+pub fn is_nfkd(s: &str) -> Result<bool, CapacityError> {
     match is_nfkd_quick(s.chars()) {
-        IsNormalized::Yes => true,
-        IsNormalized::No => false,
-        IsNormalized::Maybe => s.chars().eq(s.chars().nfkd()),
+        IsNormalized::Yes => Ok(true),
+        IsNormalized::No => Ok(false),
+        IsNormalized::Maybe => try_iter_eq(s.chars().map(Ok), s.chars().nfkd()),
     }
 }
 
 /// Authoritatively check if a string is Stream-Safe NFC.
 #[inline]
-pub fn is_nfc_stream_safe(s: &str) -> bool {
+pub fn is_nfc_stream_safe(s: &str) -> Result<bool, CapacityError> {
     match is_nfc_stream_safe_quick(s.chars()) {
-        IsNormalized::Yes => true,
-        IsNormalized::No => false,
-        IsNormalized::Maybe => s.chars().eq(s.chars().stream_safe().nfc()),
+        IsNormalized::Yes => Ok(true),
+        IsNormalized::No => Ok(false),
+        IsNormalized::Maybe => try_iter_eq(s.chars().map(Ok), s.chars().stream_safe().nfc()),
     }
 }
 
 /// Authoritatively check if a string is Stream-Safe NFD.
 #[inline]
-pub fn is_nfd_stream_safe(s: &str) -> bool {
+pub fn is_nfd_stream_safe(s: &str) -> Result<bool, CapacityError> {
     match is_nfd_stream_safe_quick(s.chars()) {
-        IsNormalized::Yes => true,
-        IsNormalized::No => false,
-        IsNormalized::Maybe => s.chars().eq(s.chars().stream_safe().nfd()),
+        IsNormalized::Yes => Ok(true),
+        IsNormalized::No => Ok(false),
+        IsNormalized::Maybe => try_iter_eq(s.chars().map(Ok), s.chars().stream_safe().nfd()),
     }
 }
 

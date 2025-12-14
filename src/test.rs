@@ -23,7 +23,7 @@ fn test_nfd() {
             // A dummy iterator that is not std::str::Chars directly;
             // note that `id_func` is used to ensure `Clone` implementation
             assert_eq!(
-                $input.chars().map(|c| c).nfd().collect::<String>(),
+                $input.chars().map(|c| c).nfd().map(|x|x.unwrap()).collect::<String>(),
                 $expected
             );
         };

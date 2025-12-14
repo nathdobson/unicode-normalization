@@ -157,7 +157,7 @@ mod tests {
             };
             let c = classify_nonstarters(ch);
             let mut s = Vec::new();
-            decompose_compatible(ch, |c| s.push(c));
+            decompose_compatible::<_, !>(ch, |c| Ok(s.push(c))).unwrap();
 
             assert_eq!(s.len(), c.decomposition_len);
 

@@ -20,7 +20,7 @@ fn test_normalization_tests_unaffected() {
 fn test_official() {
     macro_rules! normString {
         ($method: ident, $input: expr) => {
-            $input.$method().collect::<String>()
+            $input.$method().map(|x| x.unwrap()).collect::<String>()
         };
     }
 
@@ -85,21 +85,21 @@ fn test_official() {
 fn test_quick_check() {
     use unicode_normalization::__test_api::quick_check;
     for test in NORMALIZATION_TESTS {
-        assert!(quick_check::is_nfc(test.nfc));
-        assert!(quick_check::is_nfd(test.nfd));
-        assert!(quick_check::is_nfkc(test.nfkc));
-        assert!(quick_check::is_nfkd(test.nfkd));
+        assert!(quick_check::is_nfc(test.nfc).unwrap());
+        assert!(quick_check::is_nfd(test.nfd).unwrap());
+        assert!(quick_check::is_nfkc(test.nfkc).unwrap());
+        assert!(quick_check::is_nfkd(test.nfkd).unwrap());
         if test.nfc != test.nfd {
-            assert!(!quick_check::is_nfc(test.nfd));
-            assert!(!quick_check::is_nfd(test.nfc));
+            assert!(!quick_check::is_nfc(test.nfd).unwrap());
+            assert!(!quick_check::is_nfd(test.nfc).unwrap());
         }
         if test.nfkc != test.nfc {
-            assert!(!quick_check::is_nfkc(test.nfc));
-            assert!(quick_check::is_nfc(test.nfkc));
+            assert!(!quick_check::is_nfkc(test.nfc).unwrap());
+            assert!(quick_check::is_nfc(test.nfkc).unwrap());
         }
         if test.nfkd != test.nfd {
-            assert!(!quick_check::is_nfkd(test.nfd));
-            assert!(quick_check::is_nfd(test.nfkd));
+            assert!(!quick_check::is_nfkd(test.nfd).unwrap());
+            assert!(quick_check::is_nfd(test.nfkd).unwrap());
         }
     }
 }

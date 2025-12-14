@@ -11,7 +11,7 @@ use core::{
     fmt::{self, Write},
     iter::FusedIterator,
 };
-use tinyvec::ArrayVec;
+use heapless::CapacityError;
 
 /// External iterator for replacements for a string's characters.
 #[derive(Clone)]
@@ -37,21 +37,23 @@ impl<I: Iterator<Item = char>> Replacements<I> {
 }
 
 impl<I: Iterator<Item = char>> Iterator for Replacements<I> {
-    type Item = char;
+    type Item = Result<char, CapacityError>;
 
     #[inline]
-    fn next(&mut self) -> Option<char> {
+    fn next(&mut self) -> Option<Result<char, CapacityError>> {
         if let Some(c) = self.buffer.take() {
-            return Some(c);
+            return Some(Ok(c));
         }
 
         match self.iter.next() {
             Some(ch) => {
                 // At this time, the longest replacement sequence has length 2.
-                let mut buffer = ArrayVec::<[char; 2]>::new();
-                super::char::decompose_cjk_compat_variants(ch, |d| buffer.push(d));
+                let mut buffer = heapless::Vec::<char, 2>::new();
+                if let Err(_) = super::char::decompose_cjk_compat_variants(ch, |d| buffer.push(d)) {
+                    return Some(Err(CapacityError::default()));
+                }
                 self.buffer = buffer.get(1).copied();
-                Some(buffer[0])
+                Some(Ok(buffer[0]))
             }
             None => None,
         }
@@ -68,7 +70,7 @@ impl<I: Iterator<Item = char> + FusedIterator> FusedIterator for Replacements<I>
 impl<I: Iterator<Item = char> + Clone> fmt::Display for Replacements<I> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for c in self.clone() {
-            f.write_char(c)?;
+            f.write_char(c.map_err(|_| fmt::Error)?)?;
         }
         Ok(())
     }
