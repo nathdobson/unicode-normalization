@@ -37,7 +37,6 @@
 //! unicode-normalization = "0.1.20"
 //! ```
 
-#![feature(never_type)]
 #![deny(missing_docs, unsafe_code, unused_must_use)]
 #![doc(
     html_logo_url = "https://unicode-rs.github.io/unicode-rs_sm.png",
