@@ -34,7 +34,7 @@ edition = "2018"
 exclude = ["target/*", "Cargo.lock", "scripts/tmp", "*.txt", "tests/*"]
 
 [dependencies]
-heapless = "0.9.2"
+heapless = {path="../heapless"}
 
 [features]
 default = ["std"]
